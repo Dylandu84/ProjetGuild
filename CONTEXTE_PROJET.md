@@ -1,4 +1,4 @@
-# CONTEXTE PROJET — PROJETGUILD
+# CONTEXTE PROJET — PROJETGUILD — MIS À JOUR
 ## À donner à Claude au début de chaque conversation
 
 ---
