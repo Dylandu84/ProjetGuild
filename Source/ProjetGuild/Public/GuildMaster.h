@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "InputActionValue.h"
 #include "GuildMaster.generated.h"
 
 UCLASS()
@@ -19,22 +20,26 @@ public:
         class UInputComponent* PlayerInputComponent) override;
 
     // ── CAMÉRA FPS ───────────────────────────────────────────────────────
-    // La caméra attachée à la tête du personnage
-    // SpringArm = bras qui évite que la caméra traverse les murs
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     class USpringArmComponent* SpringArm;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     class UCameraComponent* Camera;
 
+    // ── ENHANCED INPUT ────────────────────────────────────────────────────
+    // Le contexte de mapping — assigné dans le Blueprint
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    class UInputMappingContext* MappingContext;
+
+    // Les actions d'input — assignées dans le Blueprint
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    class UInputAction* MoveAction;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    class UInputAction* LookAction;
+
 private:
 
-    // ── MOUVEMENT ────────────────────────────────────────────────────────
-    // Avancer / reculer / gauche / droite
-    void MoveForward(float Value);
-    void MoveRight(float Value);
-
-    // Regarder avec la souris
-    void LookUp(float Value);
-    void LookRight(float Value);
+    void Move(const FInputActionValue& Value);
+    void Look(const FInputActionValue& Value);
 };
