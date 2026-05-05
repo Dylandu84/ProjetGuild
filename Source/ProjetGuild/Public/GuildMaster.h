@@ -38,8 +38,12 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     class UInputAction* LookAction;
 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    class UInputAction* OpenRecruitmentAction;
+
 private:
 
     void Move(const FInputActionValue& Value);
     void Look(const FInputActionValue& Value);
+    void OpenRecruitment(const FInputActionValue& Value);
 };

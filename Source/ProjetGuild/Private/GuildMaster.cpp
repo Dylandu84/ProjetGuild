@@ -59,6 +59,7 @@ void AGuildMaster::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
     {
         EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AGuildMaster::Move);
         EIC->BindAction(LookAction, ETriggerEvent::Triggered, this, &AGuildMaster::Look);
+        EIC->BindAction(OpenRecruitmentAction, ETriggerEvent::Started, this, &AGuildMaster::OpenRecruitment);
     }
 }
 
@@ -77,4 +78,12 @@ void AGuildMaster::Look(const FInputActionValue& Value)
 
     AddControllerYawInput(LookVector.X);
     AddControllerPitchInput(LookVector.Y);
+
+
+}
+
+void AGuildMaster::OpenRecruitment(const FInputActionValue& Value)
+{
+    // On laisse le Blueprint gérer l'affichage du panneau
+    // On utilise un BlueprintImplementableEvent pour ça
 }
