@@ -143,6 +143,8 @@ void UGuildManager::RecruitAdventurer(FAdventurerData Adventurer)
     Adventurer.Status = EAdventurerStatus::Available;
     Adventurers.Add(Adventurer);
 
+    OnAdventurerCountChanged.Broadcast(Adventurers.Num());
+
     UE_LOG(LogTemp, Log, TEXT("[GuildManager] Recruté: %s"),
         *Adventurer.GetFullName().ToString());
 }
