@@ -440,3 +440,23 @@ FAdventurerData* UGuildManager::FindAdventurer(FGuid AdventurerID)
     }
     return nullptr;
 }
+
+void UGuildManager::AddResourceToInventory(EItemCategory ResourceType, int32 Amount)
+{
+    if (int32* Current = ResourceInventory.Find(ResourceType))
+    {
+        *Current += Amount;
+    }
+    else
+    {
+        ResourceInventory.Add(ResourceType, Amount);
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("[GuildManager] +%d ressource type %d. Total: %d"),
+        Amount, (int32)ResourceType, ResourceInventory.FindRef(ResourceType));
+}
+
+int32 UGuildManager::GetResourceAmount(EItemCategory ResourceType) const
+{
+    return ResourceInventory.FindRef(ResourceType);
+}

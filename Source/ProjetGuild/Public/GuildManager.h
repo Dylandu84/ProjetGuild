@@ -76,6 +76,13 @@ public:
     UFUNCTION(BlueprintPure, Category = "Guild|Reputation")
     int32 GetReputation(EFactionType Faction) const;
 
+    // ── INVENTAIRE DE RESSOURCES ──────────────────────────────────────────────
+    UFUNCTION(BlueprintCallable, Category = "Guild|Resources")
+    void AddResourceToInventory(EItemCategory ResourceType, int32 Amount);
+
+    UFUNCTION(BlueprintPure, Category = "Guild|Resources")
+    int32 GetResourceAmount(EItemCategory ResourceType) const;
+    
     // ── DELEGATES ─────────────────────────────────────────────────────────
     // L'UI s'abonne à ces events pour se mettre à jour automatiquement
     UPROPERTY(BlueprintAssignable, Category = "Guild|Events")
@@ -119,4 +126,7 @@ private:
 
     // Trouve un aventurier par son ID unique
     FAdventurerData* FindAdventurer(FGuid AdventurerID);
+
+    UPROPERTY()
+    TMap<EItemCategory, int32> ResourceInventory;
 };

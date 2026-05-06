@@ -105,7 +105,18 @@ struct FInventorySlot
     UPROPERTY(BlueprintReadWrite)
     int32 Quantity = 0;
 };
+// Un coût en ressource — utilisé pour les coûts de construction et les récoltes
+USTRUCT(BlueprintType)
+struct FResourceCost
+{
+    GENERATED_BODY()
 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly)
+    EItemCategory Resource = EItemCategory::Material;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly)
+    int32 Amount = 0;
+};
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  2. AVENTURIERS
