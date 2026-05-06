@@ -99,6 +99,10 @@ public:
 
     UPROPERTY(BlueprintAssignable, Category = "Guild|Events")
     FOnGoldChanged OnAdventurerCountChanged;
+
+    UPROPERTY(BlueprintAssignable, Category = "Guild|Events")
+    FOnGoldChanged OnResourceChanged;
+
 private:
 
     // ── DONNÉES INTERNES ──────────────────────────────────────────────────

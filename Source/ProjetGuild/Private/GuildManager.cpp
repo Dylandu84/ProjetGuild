@@ -454,6 +454,7 @@ void UGuildManager::AddResourceToInventory(EItemCategory ResourceType, int32 Amo
 
     UE_LOG(LogTemp, Log, TEXT("[GuildManager] +%d ressource type %d. Total: %d"),
         Amount, (int32)ResourceType, ResourceInventory.FindRef(ResourceType));
+    OnResourceChanged.Broadcast(ResourceInventory.FindRef(ResourceType));
 }
 
 int32 UGuildManager::GetResourceAmount(EItemCategory ResourceType) const
