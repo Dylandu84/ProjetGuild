@@ -37,8 +37,8 @@ void ABuildingPiece::SetGhostMode(bool bGhost)
     else
     {
         // Collision normale une fois posé
+        MeshComponent->SetCollisionProfileName(TEXT("BlockAll"));
         MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-
         // Material normal
         if (NormalMaterial)
         {
@@ -91,6 +91,7 @@ bool ABuildingPiece::Place()
     bIsGhost = false;
     // Cache la pièce temporairement — on la verra quand on aura de vrais materials
     MeshComponent->SetVisibility(true);
+    MeshComponent->SetCollisionProfileName(TEXT("BlockAll"));
     MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
     SetActorTickEnabled(false);
 
