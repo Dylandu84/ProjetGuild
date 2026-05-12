@@ -103,6 +103,8 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "Guild|Events")
     FOnGoldChanged OnResourceChanged;
 
+    UFUNCTION(BlueprintCallable, Category = "Guild|Resources")
+    bool SpendResourceFromInventory(EItemCategory ResourceType, int32 Amount);
 private:
 
     // ── DONNÉES INTERNES ──────────────────────────────────────────────────

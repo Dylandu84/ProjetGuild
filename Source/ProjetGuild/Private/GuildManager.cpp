@@ -15,6 +15,10 @@ void UGuildManager::Initialize(FSubsystemCollectionBase& Collection)
     GuildState.CurrentDay = 1;
     GuildState.Gold = 150;
 
+    ResourceInventory.Add(EItemCategory::Material, 50);
+    ResourceInventory.Add(EItemCategory::Weapon, 0);
+    ResourceInventory.Add(EItemCategory::Food, 0);
+
     // Initialise la réputation à 0 pour chaque faction
     // On crée une entrée pour chaque faction dès le départ
     // pour éviter de vérifier "est-ce que cette clé existe ?" plus tard
@@ -277,7 +281,44 @@ int32 UGuildManager::GetReputation(EFactionType Faction) const
     }
     return 0;
 }
+// ─────────────────────────────────────────────────────────────────────────────
+//  SPEND RESOURCE FROM INVENTORY
+//  Retire des ressources de l'inventaire du domaine.
+//  Utilisé par les systèmes de construction et de réparation.
+//  Retourne false si pas assez de ressources — l'appelant doit gérer ce cas.
+// ─────────────────────────────────────────────────────────────────────────────
+bool UGuildManager::SpendResourceFromInventory(EItemCategory ResourceType, int32 Amount)
+{
+    // Find() retourne un pointeur vers la valeur dans la map
+    // Si la ressource n'existe pas encore — on ne peut pas la dépenser
+    if (int32* Current = ResourceInventory.Find(ResourceType))
+    {
+        // Vérifie qu'on a assez avant de dépenser
+        if (*Current < Amount)
+        {
+            UE_LOG(LogTemp, Warning,
+                TEXT("[GuildManager] SpendResourceFromInventory: insuffisant. Demandé: %d, Disponible: %d"),
+                Amount, *Current);
+            return false;
+        }
 
+        // Déduit la quantité
+        *Current -= Amount;
+
+        // Notifie l'UI que la ressource a changé
+        OnResourceChanged.Broadcast(*Current);
+
+        UE_LOG(LogTemp, Log,
+            TEXT("[GuildManager] -%d ressource. Reste: %d"), Amount, *Current);
+
+        return true;
+    }
+
+    // La ressource n'existe pas dans l'inventaire
+    UE_LOG(LogTemp, Warning,
+        TEXT("[GuildManager] SpendResourceFromInventory: ressource introuvable dans l'inventaire"));
+    return false;
+}
 // ─────────────────────────────────────────────────────────────────────────────
 //  MÉTHODES PRIVÉES
 // ─────────────────────────────────────────────────────────────────────────────
