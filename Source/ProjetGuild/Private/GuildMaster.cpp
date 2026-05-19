@@ -1,4 +1,6 @@
 ﻿#include "GuildMaster.h"
+#include "BuildingPiece.h"
+#include "Kismet/GameplayStatics.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -28,6 +30,9 @@ AGuildMaster::AGuildMaster()
 
     GetCharacterMovement()->bOrientRotationToMovement = false;
     GetCharacterMovement()->MaxWalkSpeed = 300.f;
+
+    // Crée le composant inventaire
+    InventoryComponent = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComponent"));
 }
 
 void AGuildMaster::BeginPlay()
@@ -86,4 +91,102 @@ void AGuildMaster::OpenRecruitment(const FInputActionValue& Value)
 {
     // On laisse le Blueprint gérer l'affichage du panneau
     // On utilise un BlueprintImplementableEvent pour ça
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  FIND NEAREST SNAP POINT — VERSION 3
+//  Utilise le système de types compatibles pour trouver
+//  le meilleur point de snap entre le ghost et les pièces posées.
+//  Trouve le snap point du ghost le plus proche du snap point de la pièce
+//  pour que l'alignement soit correct.
+// ─────────────────────────────────────────────────────────────────────────────
+bool AGuildMaster::FindNearestSnapPoint(FVector CurrentLocation, FVector& OutSnapLocation, FRotator& OutSnapRotation)
+{
+    const float DetectionRadius = 600.f;
+
+    if (!CurrentGhost) return false;
+    if (CurrentGhost->SnapPoints.IsEmpty()) return false;
+
+    TArray<AActor*> NearbyActors;
+    UGameplayStatics::GetAllActorsOfClass(
+        GetWorld(), ABuildingPiece::StaticClass(), NearbyActors);
+
+    float NearestDistance = DetectionRadius;
+
+    bool bFoundSnap = false;
+
+    for (AActor* Actor : NearbyActors)
+    {
+        ABuildingPiece* Piece = Cast<ABuildingPiece>(Actor);
+        if (!Piece || Piece->bIsGhost) continue;
+
+        float DistanceToPiece = FVector::Dist(CurrentLocation, Piece->GetActorLocation());
+        if (DistanceToPiece > DetectionRadius) continue;
+
+        for (const FSnapPointData& PieceSP : Piece->SnapPoints)
+        {
+            FVector PieceSnapWorld = Piece->GetActorTransform()
+                .TransformPosition(PieceSP.LocalOffset);
+
+            const FSnapPointData* CompatibleGhostSP = nullptr;
+            float NearestGhostSnapDist = FLT_MAX;
+
+            for (const FSnapPointData& GhostSP : CurrentGhost->SnapPoints)
+            {
+                if (!PieceSP.CompatibleTypes.Contains(GhostSP.SnapType)) continue;
+
+                FVector GhostSnapWorld = CurrentGhost->GetActorTransform()
+                    .TransformPosition(GhostSP.LocalOffset);
+
+                float Dist = FVector::Dist(PieceSnapWorld, GhostSnapWorld);
+                if (Dist < NearestGhostSnapDist)
+                {
+                    NearestGhostSnapDist = Dist;
+                    CompatibleGhostSP = &GhostSP;
+                }
+            }
+
+            if (!CompatibleGhostSP) continue;
+
+            // Pour l'axe Z on applique l'offset du ghost
+// pour que son snap point s'aligne avec celui de la pièce
+            FVector GhostSnapOffsetZ = FVector(0, 0, CompatibleGhostSP->LocalOffset.Z);
+            FVector CandidateLocation = PieceSnapWorld - GhostSnapOffsetZ;
+
+            float Distance = FVector::Dist(CurrentLocation, CandidateLocation);
+
+            if (Distance < NearestDistance)
+            {
+                NearestDistance = Distance;
+                OutSnapLocation = CandidateLocation;
+                // Rotation de la pièce + rotation du snap point
+                OutSnapRotation = Piece->GetActorRotation() + PieceSP.SnapRotation;
+                bFoundSnap = true;
+            }
+        }
+    }
+
+    return bFoundSnap;
+}
+
+FVector AGuildMaster::GetGroundPosition(FVector StartLocation, AActor* IgnoredActor)
+{
+    FVector Start = StartLocation + FVector(0, 0, 1000.f);
+    FVector End = StartLocation - FVector(0, 0, 1000.f);
+
+    FHitResult Hit;
+    FCollisionQueryParams Params;
+    Params.AddIgnoredActor(this);
+
+    if (IgnoredActor)
+    {
+        Params.AddIgnoredActor(IgnoredActor);
+    }
+
+    if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
+    {
+        return Hit.ImpactPoint;
+    }
+
+    return StartLocation;
 }

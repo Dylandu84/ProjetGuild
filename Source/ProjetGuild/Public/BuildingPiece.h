@@ -70,9 +70,15 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Building Piece")
     class UStaticMeshComponent* MeshComponent;
 
+    // ── SNAP POINTS ───────────────────────────────────────────────────────────
+// Définis dans chaque Blueprint — plus besoin de Scene Components
+// Tu configures les types et positions directement dans l'éditeur UE5
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Snap Points")
+    TArray<FSnapPointData> SnapPoints;
+
     // ── ÉTAT ──────────────────────────────────────────────────────────────
     UPROPERTY(BlueprintReadOnly, Category = "Building Piece")
-    bool bIsGhost = false;          // Mode preview — pas encore posé
+    bool bIsGhost = true;          // Mode preview — pas encore posé
 
     UPROPERTY(BlueprintReadOnly, Category = "Building Piece")
     bool bCanPlace = false;         // Est-ce qu'on peut poser ici ?
@@ -97,13 +103,14 @@ public:
     // Vérifie si on a assez de ressources pour poser
     UFUNCTION(BlueprintPure, Category = "Building Piece")
     bool CanAffordToBuild() const;
+    
+    // Retourne la position mondiale d'un snap point
+    FVector GetSnapPointWorldLocation(const FSnapPointData& SnapPoint) const;
 
-    // ── SOCKETS DE SNAP ───────────────────────────────────────────────────
-    // Les points où d'autres pièces peuvent se connecter
-    // Définis dans le Blueprint via des SceneComponents nommés "SnapPoint_X"
-    UFUNCTION(BlueprintCallable, Category = "Building Piece")
-    TArray<USceneComponent*> GetSnapPoints() const;
-
+    // Trouve le snap point compatible le plus proche d'une position
+    bool FindCompatibleSnapPoint(const TArray<ESnapType>& GhostCompatibleTypes,
+        FVector SearchLocation, FVector& OutLocation, FRotator& OutRotation) const;
+   
     // ── MATERIALS ─────────────────────────────────────────────────────────
     // Materials assignés dans le Blueprint
     UPROPERTY(EditDefaultsOnly, Category = "Materials")
@@ -121,4 +128,5 @@ public:
 
     UFUNCTION(BlueprintImplementableEvent, Category = "Building Piece")
     void OnDestroyed_Building();
+   
 };

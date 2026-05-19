@@ -120,23 +120,73 @@ bool ABuildingPiece::CanAffordToBuild() const
     return true;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  SNAP POINTS
-// ─────────────────────────────────────────────────────────────────────────────
-TArray<USceneComponent*> ABuildingPiece::GetSnapPoints() const
-{
-    TArray<USceneComponent*> SnapPoints;
-    TArray<USceneComponent*> Components;
-    GetComponents<USceneComponent>(Components);
 
-    for (USceneComponent* Comp : Components)
+// ─────────────────────────────────────────────────────────────────────────────
+//  GET SNAP POINT WORLD LOCATION
+//  Convertit la position locale du snap point en position mondiale
+// ─────────────────────────────────────────────────────────────────────────────
+FVector ABuildingPiece::GetSnapPointWorldLocation(const FSnapPointData& SnapPoint) const
+{
+    // On transforme l'offset local en position mondiale
+    // en tenant compte de la rotation et position de la pièce
+    return GetActorTransform().TransformPosition(SnapPoint.LocalOffset);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  FIND COMPATIBLE SNAP POINT
+//  Cherche dans les snap points de cette pièce un point compatible
+//  avec les types du ghost, et assez proche de SearchLocation
+// ─────────────────────────────────────────────────────────────────────────────
+bool ABuildingPiece::FindCompatibleSnapPoint(
+    const TArray<ESnapType>& GhostCompatibleTypes,
+    FVector SearchLocation,
+    FVector& OutLocation,
+    FRotator& OutRotation) const
+{
+    UE_LOG(LogTemp, Log, TEXT("[Snap] Checking piece SnapPoints: %d"), SnapPoints.Num());
+    
+    const float SnapRadius = 250.f;
+    float NearestDistance = SnapRadius;
+    bool bFound = false;
+
+    for (const FSnapPointData& SnapPoint : SnapPoints)
     {
-        // On cherche les composants nommés "SnapPoint_"
-        if (Comp->GetName().StartsWith(TEXT("SnapPoint_")))
+        UE_LOG(LogTemp, Log, TEXT("[Snap] SnapPoint type: %d, Compatible count: %d"),
+            (int32)SnapPoint.SnapType, SnapPoint.CompatibleTypes.Num());
+        
+        for (ESnapType GhostType : GhostCompatibleTypes)
         {
-            SnapPoints.Add(Comp);
+            UE_LOG(LogTemp, Log, TEXT("[Snap] Ghost type: %d"), (int32)GhostType);
+            UE_LOG(LogTemp, Log, TEXT("[Snap] Compatible contains: %d"),
+                SnapPoint.CompatibleTypes.Contains(GhostType) ? 1 : 0);
+        }
+        // Vérifie si ce snap point est compatible avec le ghost
+        bool bCompatible = false;
+        for (ESnapType GhostType : GhostCompatibleTypes)
+        {
+            if (SnapPoint.CompatibleTypes.Contains(GhostType))
+            {
+                bCompatible = true;
+                break;
+            }
+        }
+
+        if (!bCompatible) continue;
+
+        // Calcule la position mondiale du snap point
+        FVector WorldLocation = GetSnapPointWorldLocation(SnapPoint);
+        float Distance = FVector::Dist(SearchLocation, WorldLocation);
+        UE_LOG(LogTemp, Log, TEXT("[Snap] Distance au snap: %f / SnapRadius: %f"),
+            Distance, SnapRadius);
+
+        if (Distance < NearestDistance)
+        {
+            NearestDistance = Distance;
+            OutLocation = WorldLocation;
+            OutRotation = SnapPoint.SnapRotation;
+            bFound = true;
         }
     }
 
-    return SnapPoints;
+    return bFound;
 }

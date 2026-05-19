@@ -1,9 +1,12 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "BuildingPiece.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "InventoryComponent.h"
 #include "GuildMaster.generated.h"
+
 
 UCLASS()
 class PROJETGUILD_API AGuildMaster : public ACharacter
@@ -18,7 +21,9 @@ public:
     virtual void Tick(float DeltaTime) override;
     virtual void SetupPlayerInputComponent(
         class UInputComponent* PlayerInputComponent) override;
-
+   
+    UPROPERTY(BlueprintReadWrite, Category = "Building")
+    ABuildingPiece* CurrentGhost = nullptr;
     // ── CAMÉRA FPS ───────────────────────────────────────────────────────
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     class USpringArmComponent* SpringArm;
@@ -41,8 +46,21 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     class UInputAction* OpenRecruitmentAction;
 
+    // Exposée au Blueprint pour l'appeler dans Event Tick
+    UFUNCTION(BlueprintCallable, Category = "Building")
+    bool FindNearestSnapPoint(FVector CurrentLocation, FVector& OutSnapLocation, FRotator& OutSnapRotation);
+   
+    UFUNCTION(BlueprintCallable, Category = "Building")
+    FVector GetGroundPosition(FVector StartLocation, AActor* IgnoredActor = nullptr);
+
+    // ── INVENTAIRE ────────────────────────────────────────────────────────────
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory")
+    class UInventoryComponent* InventoryComponent;
+
+  
 private:
 
+   
     void Move(const FInputActionValue& Value);
     void Look(const FInputActionValue& Value);
     void OpenRecruitment(const FInputActionValue& Value);

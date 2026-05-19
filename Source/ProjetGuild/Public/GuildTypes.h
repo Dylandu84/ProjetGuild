@@ -689,3 +689,45 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnNarrativeEvent, FNarrativeEvent, 
 
 // La réputation a changé
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnReputationChanged, EFactionType, Faction, int32, NewScore);
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  10. SYSTÈME DE SNAP
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Types de points de snap — définit ce qui peut se connecter à quoi
+UENUM(BlueprintType)
+enum class ESnapType : uint8
+{
+    Foundation_Side     UMETA(DisplayName = "Côté Fondation"),
+    Foundation_Top      UMETA(DisplayName = "Dessus Fondation"),
+    Wall_Bottom         UMETA(DisplayName = "Bas Mur"),
+    Wall_Top            UMETA(DisplayName = "Haut Mur"),
+    Wall_Side           UMETA(DisplayName = "Côté Mur"),
+    Floor_Side          UMETA(DisplayName = "Côté Sol"),
+    Floor_Top           UMETA(DisplayName = "Dessus Sol"),
+    Roof_Bottom         UMETA(DisplayName = "Bas Toit"),
+};
+
+// Un point de snap avec son type et ses compatibilités
+USTRUCT(BlueprintType)
+struct FSnapPointData
+{
+    GENERATED_BODY()
+
+    // Le type de ce snap point
+    UPROPERTY(EditAnywhere, BlueprintReadOnly)
+    ESnapType SnapType = ESnapType::Foundation_Side;
+
+    // Types de snap points avec lesquels ce point est compatible
+    UPROPERTY(EditAnywhere, BlueprintReadOnly)
+    TArray<ESnapType> CompatibleTypes;
+
+    // Position relative au centre du bâtiment
+    UPROPERTY(EditAnywhere, BlueprintReadOnly)
+    FVector LocalOffset = FVector::ZeroVector;
+
+    // Rotation à appliquer au ghost quand il snappe ici
+    UPROPERTY(EditAnywhere, BlueprintReadOnly)
+    FRotator SnapRotation = FRotator::ZeroRotator;
+};
