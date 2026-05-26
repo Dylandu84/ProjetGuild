@@ -53,9 +53,8 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Building")
     FVector GetGroundPosition(FVector StartLocation, AActor* IgnoredActor = nullptr);
 
-    // ── INVENTAIRE ────────────────────────────────────────────────────────────
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory")
-    class UInventoryComponent* InventoryComponent;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory", meta = (AllowPrivateAccess = "true"))
+    UInventoryComponent* InventoryComponent;
 
   
 private:

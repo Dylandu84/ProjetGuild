@@ -1,4 +1,5 @@
 ﻿#include "ResourceNode.h"
+#include "InventoryComponent.h"
 #include "GuildManager.h"
 
 AResourceNode::AResourceNode()
@@ -60,24 +61,45 @@ bool AResourceNode::Interact()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  GIVE RESOURCES — ajoute les ressources au GuildManager
+//  GIVE RESOURCES — ajoute les ressources a l'inventaire
 // ─────────────────────────────────────────────────────────────────────────────
 void AResourceNode::GiveResources()
 {
-    UGuildManager* GM = UGuildManager::Get(this);
-    if (!GM) return;
+    // Cherche le joueur dans le monde
+    APlayerController* PC = GetWorld()->GetFirstPlayerController();
+    if (!PC) return;
 
-    for (const FResourceCost& Resource : NodeData.ResourcesGiven)
+    APawn* PlayerPawn = PC->GetPawn();
+    if (!PlayerPawn) return;
+
+    // Cherche le composant inventaire sur le joueur
+    UInventoryComponent* Inventory = PlayerPawn->FindComponentByClass<UInventoryComponent>();
+    if (!Inventory)
     {
-        // On utilise AddResource si elle existe — sinon on ajoute à l'inventaire
-        UE_LOG(LogTemp, Log, TEXT("[ResourceNode] Donne %d x %d"),
-            (int32)Resource.Resource, Resource.Amount);
-
-        GM->AddResourceToInventory(Resource.Resource, Resource.Amount);
-        // GM->AddResource(Resource.Resource, Resource.Amount);
+        UE_LOG(LogTemp, Warning, TEXT("[ResourceNode] Pas d'inventaire sur le joueur !"));
+        return;
     }
 
-    UE_LOG(LogTemp, Log, TEXT("[ResourceNode] Récolte complète !"));
+    // Ajoute les ressources à l'inventaire
+    for (const FResourceCost& Resource : NodeData.ResourcesGiven)
+    {
+        // Convertit EItemCategory en FName pour l'inventaire
+        FName ItemID = FName(*UEnum::GetValueAsString(Resource.Resource));
+
+        int32 Remaining = Inventory->AddItem(ItemID, Resource.Amount);
+
+        if (Remaining > 0)
+        {
+            UE_LOG(LogTemp, Warning,
+                TEXT("[ResourceNode] Inventaire plein — %d items perdus"), Remaining);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Log,
+                TEXT("[ResourceNode] +%d %s dans l'inventaire"),
+                Resource.Amount, *ItemID.ToString());
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
