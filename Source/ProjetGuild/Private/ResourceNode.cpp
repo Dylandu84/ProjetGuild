@@ -84,7 +84,15 @@ void AResourceNode::GiveResources()
     for (const FResourceCost& Resource : NodeData.ResourcesGiven)
     {
         // Convertit EItemCategory en FName pour l'inventaire
-        FName ItemID = FName(*UEnum::GetValueAsString(Resource.Resource));
+        FString ItemName;
+        switch (Resource.Resource)
+        {
+        case EItemCategory::Material: ItemName = "Wood"; break;
+        case EItemCategory::Weapon:   ItemName = "Weapon"; break;
+        case EItemCategory::Food:     ItemName = "Food"; break;
+        default: ItemName = "Unknown"; break;
+        }
+        FName ItemID = FName(*ItemName);
 
         int32 Remaining = Inventory->AddItem(ItemID, Resource.Amount);
 

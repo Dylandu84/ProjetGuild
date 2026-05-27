@@ -29,6 +29,8 @@ void UInventoryComponent::BeginPlay()
 // ─────────────────────────────────────────────────────────────────────────────
 int32 UInventoryComponent::AddItem(FName ItemID, int32 Quantity)
 {
+    
+    UE_LOG(LogTemp, Log, TEXT("[Inventory] AddItem: ID='%s', Quantity=%d"), *ItemID.ToString(), Quantity);
     if (ItemID == NAME_None || Quantity <= 0) return Quantity;
 
     int32 Remaining = Quantity;

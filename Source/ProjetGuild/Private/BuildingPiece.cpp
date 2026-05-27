@@ -1,5 +1,6 @@
 ﻿#include "BuildingPiece.h"
 #include "GuildManager.h"
+#include "InventoryComponent.h"
 #include "Components/SceneComponent.h"
 
 ABuildingPiece::ABuildingPiece()
@@ -83,7 +84,29 @@ bool ABuildingPiece::Place()
     // Dépense les ressources
     for (const FResourceCost& Cost : PieceData.BuildCost)
     {
-        GM->SpendResourceFromInventory(Cost.Resource, Cost.Amount);
+        // Cherche l'inventaire du joueur
+        APlayerController* PC = GetWorld()->GetFirstPlayerController();
+        if (PC)
+        {
+            APawn* PlayerPawn = PC->GetPawn();
+            if (PlayerPawn)
+            {
+                UInventoryComponent* Inventory = PlayerPawn->FindComponentByClass<UInventoryComponent>();
+                if (Inventory)
+                {
+                    // Convertit EItemCategory en FName
+                    FString ItemName;
+                    switch (Cost.Resource)
+                    {
+                    case EItemCategory::Material: ItemName = "Wood"; break;
+                    case EItemCategory::Weapon:   ItemName = "Weapon"; break;
+                    case EItemCategory::Food:     ItemName = "Food"; break;
+                    default: ItemName = "Unknown"; break;
+                    }
+                    Inventory->RemoveItem(FName(*ItemName), Cost.Amount);
+                }
+            }
+        }
     }
 
     // Sort du mode ghost
@@ -107,16 +130,31 @@ bool ABuildingPiece::Place()
 
 bool ABuildingPiece::CanAffordToBuild() const
 {
-    UGuildManager* GM = UGuildManager::Get(this);
-    if (!GM) return false;
+    // Cherche l'inventaire du joueur
+    APlayerController* PC = GetWorld()->GetFirstPlayerController();
+    if (!PC) return false;
+
+    APawn* PlayerPawn = PC->GetPawn();
+    if (!PlayerPawn) return false;
+
+    UInventoryComponent* Inventory = PlayerPawn->FindComponentByClass<UInventoryComponent>();
+    if (!Inventory) return false;
 
     for (const FResourceCost& Cost : PieceData.BuildCost)
     {
-        if (GM->GetResourceAmount(Cost.Resource) < Cost.Amount)
+        FString ItemName;
+        switch (Cost.Resource)
         {
-            return false;
+        case EItemCategory::Material: ItemName = "Wood"; break;
+        case EItemCategory::Weapon:   ItemName = "Weapon"; break;
+        case EItemCategory::Food:     ItemName = "Food"; break;
+        default: ItemName = "Unknown"; break;
         }
+
+        if (!Inventory->HasItem(FName(*ItemName), Cost.Amount))
+            return false;
     }
+
     return true;
 }
 
