@@ -73,9 +73,11 @@ public:
     class UStaticMeshComponent* MeshComponent;
 
     // ── INTERACTION ───────────────────────────────────────────────────────
-    // Appelée quand le joueur interagit — retourne true si récolte terminée
+    // Appelée par le joueur FPS ou un ColonNPC
+    // Harvester = l'actor qui récolte — nullptr = fallback joueur FPS
+    // Retourne true si la récolte est complète
     UFUNCTION(BlueprintCallable, Category = "Resource Node")
-    bool Interact();
+    bool Interact(AActor* Harvester = nullptr);
 
     // Est-ce que le node est disponible pour interaction ?
     UFUNCTION(BlueprintPure, Category = "Resource Node")
@@ -91,7 +93,7 @@ public:
 
     // Appelé à chaque coup — pour les effets visuels (particules, son)
     UFUNCTION(BlueprintImplementableEvent, Category = "Resource Node")
-    void OnHit(int32 HitCount , int32 RequiredHits);
+    void OnHit(int32 HitCount, int32 RequiredHits);
 
     // Appelé quand la récolte est complète — pour l'animation de chute etc.
     UFUNCTION(BlueprintImplementableEvent, Category = "Resource Node")
@@ -103,22 +105,22 @@ public:
 
 private:
 
-    // Nombre de coups actuels
+    // Nombre de coups actuels sur ce node
     int32 CurrentHits = 0;
 
-    // Est-ce que le node est disponible ?
+    // Est-ce que le node est disponible pour être récolté ?
     bool bIsAvailable = true;
 
-    // Jour de régénération
+    // Jour auquel le node se régénère (calculé au moment de la récolte)
     int32 RegenerationDay = -1;
 
-    // Donne les ressources au GuildManager
-    void GiveResources();
+    // Donne les ressources à l'inventaire du Harvester (colon ou joueur)
+    void GiveResources(AActor* Harvester);
 
-    // Démarre le timer de régénération
+    // Démarre le timer de régénération via le delegate OnNewDay
     void StartRegeneration();
 
-    // Ajoute cette ligne ici
+    // Reçoit l'event OnNewDay du GuildManager pour vérifier la régénération
     UFUNCTION()
     void OnNewDayReceived(int32 DayNumber);
 };

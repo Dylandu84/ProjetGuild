@@ -2,6 +2,9 @@
 #include "InventoryComponent.h"
 #include "GuildManager.h"
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  CONSTRUCTEUR
+// ─────────────────────────────────────────────────────────────────────────────
 AResourceNode::AResourceNode()
 {
     PrimaryActorTick.bCanEverTick = false;
@@ -17,10 +20,12 @@ void AResourceNode::BeginPlay()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  INTERACT — appelée par le joueur via Line Trace
+//  INTERACT — appelée par le joueur FPS ou un ColonNPC
+//  Harvester = l'actor qui récolte (colon ou joueur)
+//  nullptr = fallback automatique sur le joueur FPS
 //  Retourne true si la récolte est complète
 // ─────────────────────────────────────────────────────────────────────────────
-bool AResourceNode::Interact()
+bool AResourceNode::Interact(AActor* Harvester)
 {
     // Node indisponible — en régénération ou déjà récolté
     if (!bIsAvailable) return false;
@@ -36,7 +41,8 @@ bool AResourceNode::Interact()
     // Récolte complète ?
     if (CurrentHits >= NodeData.HitsRequired)
     {
-        GiveResources();
+        // Passe le Harvester pour que les ressources aillent au bon inventaire
+        GiveResources(Harvester);
 
         // Notifie le Blueprint pour l'animation de chute/disparition
         OnHarvested();
@@ -47,7 +53,7 @@ bool AResourceNode::Interact()
         }
         else
         {
-            // Pas de régénération — on cache le mesh
+            // Pas de régénération — on cache le mesh définitivement
             MeshComponent->SetVisibility(false);
             MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
             bIsAvailable = false;
@@ -61,36 +67,43 @@ bool AResourceNode::Interact()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  GIVE RESOURCES — ajoute les ressources a l'inventaire
+//  GIVE RESOURCES — ajoute les ressources à l'inventaire du Harvester
+//  Harvester peut être le joueur FPS ou un ColonNPC
+//  Si nullptr → fallback automatique sur le joueur FPS
 // ─────────────────────────────────────────────────────────────────────────────
-void AResourceNode::GiveResources()
+void AResourceNode::GiveResources(AActor* Harvester)
 {
-    // Cherche le joueur dans le monde
-    APlayerController* PC = GetWorld()->GetFirstPlayerController();
-    if (!PC) return;
+    // Détermine la cible — Harvester en priorité, sinon joueur FPS
+    AActor* Target = Harvester;
+    if (!Target)
+    {
+        APlayerController* PC = GetWorld()->GetFirstPlayerController();
+        if (PC) Target = PC->GetPawn();
+    }
 
-    APawn* PlayerPawn = PC->GetPawn();
-    if (!PlayerPawn) return;
+    if (!Target) return;
 
-    // Cherche le composant inventaire sur le joueur
-    UInventoryComponent* Inventory = PlayerPawn->FindComponentByClass<UInventoryComponent>();
+    // Cherche le composant inventaire sur la cible
+    UInventoryComponent* Inventory = Target->FindComponentByClass<UInventoryComponent>();
     if (!Inventory)
     {
-        UE_LOG(LogTemp, Warning, TEXT("[ResourceNode] Pas d'inventaire sur le joueur !"));
+        UE_LOG(LogTemp, Warning,
+            TEXT("[ResourceNode] Pas d'inventaire sur %s !"),
+            *Target->GetName());
         return;
     }
 
-    // Ajoute les ressources à l'inventaire
+    // Ajoute chaque ressource configurée dans NodeData
     for (const FResourceCost& Resource : NodeData.ResourcesGiven)
     {
         // Convertit EItemCategory en FName pour l'inventaire
         FString ItemName;
         switch (Resource.Resource)
         {
-        case EItemCategory::Material: ItemName = "Wood"; break;
-        case EItemCategory::Weapon:   ItemName = "Weapon"; break;
-        case EItemCategory::Food:     ItemName = "Food"; break;
-        default: ItemName = "Unknown"; break;
+        case EItemCategory::Material: ItemName = "Wood";    break;
+        case EItemCategory::Weapon:   ItemName = "Weapon";  break;
+        case EItemCategory::Food:     ItemName = "Food";    break;
+        default:                      ItemName = "Unknown"; break;
         }
         FName ItemID = FName(*ItemName);
 
@@ -99,19 +112,20 @@ void AResourceNode::GiveResources()
         if (Remaining > 0)
         {
             UE_LOG(LogTemp, Warning,
-                TEXT("[ResourceNode] Inventaire plein — %d items perdus"), Remaining);
+                TEXT("[ResourceNode] Inventaire plein — %d %s perdus"),
+                Remaining, *ItemID.ToString());
         }
         else
         {
             UE_LOG(LogTemp, Log,
-                TEXT("[ResourceNode] +%d %s dans l'inventaire"),
-                Resource.Amount, *ItemID.ToString());
+                TEXT("[ResourceNode] +%d %s → inventaire de %s"),
+                Resource.Amount, *ItemID.ToString(), *Target->GetName());
         }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  START REGENERATION
+//  START REGENERATION — cache le node et attend le bon jour pour réapparaître
 // ─────────────────────────────────────────────────────────────────────────────
 void AResourceNode::StartRegeneration()
 {
@@ -121,6 +135,7 @@ void AResourceNode::StartRegeneration()
 
     if (UGuildManager* GM = UGuildManager::Get(this))
     {
+        // Calcule le jour de réapparition
         RegenerationDay = GM->GetCurrentDay() + NodeData.RegenerationDays;
 
         // S'abonne au delegate OnNewDay pour savoir quand régénérer
@@ -130,6 +145,7 @@ void AResourceNode::StartRegeneration()
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  ON NEW DAY — vérifie si c'est le moment de régénérer
+//  Appelée automatiquement par le delegate OnNewDay du GuildManager
 // ─────────────────────────────────────────────────────────────────────────────
 void AResourceNode::OnNewDayReceived(int32 DayNumber)
 {
@@ -140,7 +156,7 @@ void AResourceNode::OnNewDayReceived(int32 DayNumber)
         MeshComponent->SetVisibility(true);
         MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
-        // Se désabonne du delegate
+        // Se désabonne du delegate — plus besoin d'écouter les jours
         if (UGuildManager* GM = UGuildManager::Get(this))
         {
             GM->OnNewDay.RemoveDynamic(this, &AResourceNode::OnNewDayReceived);
@@ -148,12 +164,12 @@ void AResourceNode::OnNewDayReceived(int32 DayNumber)
 
         OnRegenerated();
 
-        UE_LOG(LogTemp, Log, TEXT("[ResourceNode] Régénéré !"));
+        UE_LOG(LogTemp, Log, TEXT("[ResourceNode] %s régénéré !"), *GetName());
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  GET INTERACTION TEXT
+//  GET INTERACTION TEXT — texte affiché au joueur selon le type de node
 // ─────────────────────────────────────────────────────────────────────────────
 FText AResourceNode::GetInteractionText() const
 {
