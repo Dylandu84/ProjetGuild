@@ -7,6 +7,10 @@
 #include "InventoryComponent.h"
 #include "GuildMaster.generated.h"
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  DELEGATE — notifie le HUD quand la vie change
+// ─────────────────────────────────────────────────────────────────────────────
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHealthChanged, float, CurrentHealth, float, MaxHealth);
 
 UCLASS()
 class PROJETGUILD_API AGuildMaster : public ACharacter
@@ -21,10 +25,22 @@ public:
     virtual void Tick(float DeltaTime) override;
     virtual void SetupPlayerInputComponent(
         class UInputComponent* PlayerInputComponent) override;
-   
+
+    // Override de TakeDamage — appelé automatiquement par UE5
+    virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent,
+        class AController* EventInstigator, AActor* DamageCauser) override;
+
+    // ── BÂTIMENT ──────────────────────────────────────────────────────────
     UPROPERTY(BlueprintReadWrite, Category = "Building")
     ABuildingPiece* CurrentGhost = nullptr;
-    // ── CAMÉRA FPS ───────────────────────────────────────────────────────
+
+    UFUNCTION(BlueprintCallable, Category = "Building")
+    bool FindNearestSnapPoint(FVector CurrentLocation, FVector& OutSnapLocation, FRotator& OutSnapRotation);
+
+    UFUNCTION(BlueprintCallable, Category = "Building")
+    FVector GetGroundPosition(FVector StartLocation, AActor* IgnoredActor = nullptr);
+
+    // ── CAMÉRA FPS ────────────────────────────────────────────────────────
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     class USpringArmComponent* SpringArm;
 
@@ -32,11 +48,9 @@ public:
     class UCameraComponent* Camera;
 
     // ── ENHANCED INPUT ────────────────────────────────────────────────────
-    // Le contexte de mapping — assigné dans le Blueprint
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     class UInputMappingContext* MappingContext;
 
-    // Les actions d'input — assignées dans le Blueprint
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     class UInputAction* MoveAction;
 
@@ -46,21 +60,45 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     class UInputAction* OpenRecruitmentAction;
 
-    // Exposée au Blueprint pour l'appeler dans Event Tick
-    UFUNCTION(BlueprintCallable, Category = "Building")
-    bool FindNearestSnapPoint(FVector CurrentLocation, FVector& OutSnapLocation, FRotator& OutSnapRotation);
-   
-    UFUNCTION(BlueprintCallable, Category = "Building")
-    FVector GetGroundPosition(FVector StartLocation, AActor* IgnoredActor = nullptr);
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory", meta = (AllowPrivateAccess = "true"))
+    // ── INVENTAIRE ────────────────────────────────────────────────────────
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory")
     UInventoryComponent* InventoryComponent;
 
-  
+    // ── SANTÉ ─────────────────────────────────────────────────────────────
+    // Points de vie maximum
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Santé")
+    float MaxHealth = 100.f;
+
+    // Points de vie actuels
+    UPROPERTY(BlueprintReadOnly, Category = "Santé")
+    float CurrentHealth = 100.f;
+
+    // Delegate — notifie le HUD quand la vie change
+    UPROPERTY(BlueprintAssignable, Category = "Santé")
+    FOnHealthChanged OnHealthChanged;
+
+    // Applique des dégâts directement (appelable depuis Blueprint)
+    UFUNCTION(BlueprintCallable, Category = "Santé")
+    void ApplyDamage(float Amount);
+
+    // Soigne le joueur
+    UFUNCTION(BlueprintCallable, Category = "Santé")
+    void Heal(float Amount);
+
+    // Est-ce que le joueur est mort ?
+    UFUNCTION(BlueprintPure, Category = "Santé")
+    bool IsDead() const { return CurrentHealth <= 0.f; }
+
+    // Event Blueprint — appelé quand le joueur meurt
+    UFUNCTION(BlueprintImplementableEvent, Category = "Santé")
+    void OnDeath();
+
 private:
 
-   
     void Move(const FInputActionValue& Value);
     void Look(const FInputActionValue& Value);
     void OpenRecruitment(const FInputActionValue& Value);
+
+    // Appelé en interne quand la vie tombe à 0
+    void Die();
 };

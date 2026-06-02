@@ -18,12 +18,12 @@ AGuildMaster::AGuildMaster()
     SpringArm->bUsePawnControlRotation = true;
     SpringArm->SetRelativeLocation(FVector(0.f, 0.f, 70.f)); // Hauteur des yeux
 
-    // Caméra
+    // Caméra attachée au SpringArm
     Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
     Camera->SetupAttachment(SpringArm);
     Camera->bUsePawnControlRotation = false;
 
-    // Rotation FPS
+    // Rotation FPS — le joueur tourne avec la caméra
     bUseControllerRotationPitch = true;
     bUseControllerRotationYaw = true;
     bUseControllerRotationRoll = false;
@@ -31,13 +31,19 @@ AGuildMaster::AGuildMaster()
     GetCharacterMovement()->bOrientRotationToMovement = false;
     GetCharacterMovement()->MaxWalkSpeed = 300.f;
 
-    // Crée le composant inventaire
+    // Inventaire du joueur
     InventoryComponent = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComponent"));
 }
 
 void AGuildMaster::BeginPlay()
 {
     Super::BeginPlay();
+
+    // Initialise la vie au maximum
+    CurrentHealth = MaxHealth;
+
+    // Notifie le HUD de la vie initiale
+    OnHealthChanged.Broadcast(CurrentHealth, MaxHealth);
 
     // Ajoute le contexte d'input au joueur
     if (APlayerController* PC = Cast<APlayerController>(GetController()))
@@ -59,7 +65,6 @@ void AGuildMaster::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 {
     Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-    // Cast vers Enhanced Input Component
     if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent))
     {
         EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AGuildMaster::Move);
@@ -68,11 +73,72 @@ void AGuildMaster::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  TAKE DAMAGE — override UE5, appelé par ApplyDamage() ou les projectiles
+// ─────────────────────────────────────────────────────────────────────────────
+float AGuildMaster::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
+    AController* EventInstigator, AActor* DamageCauser)
+{
+    Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+    ApplyDamage(DamageAmount);
+
+    return DamageAmount;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  APPLY DAMAGE — réduit la vie et notifie le HUD
+// ─────────────────────────────────────────────────────────────────────────────
+void AGuildMaster::ApplyDamage(float Amount)
+{
+    if (IsDead()) return;
+
+    // Réduit la vie sans descendre sous 0
+    CurrentHealth = FMath::Max(0.f, CurrentHealth - Amount);
+
+    UE_LOG(LogTemp, Log, TEXT("[GuildMaster] Dégâts : -%.0f | Vie : %.0f/%.0f"),
+        Amount, CurrentHealth, MaxHealth);
+
+    // Notifie le HUD
+    OnHealthChanged.Broadcast(CurrentHealth, MaxHealth);
+
+    // Vérifie si le joueur est mort
+    if (IsDead())
+    {
+        Die();
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  HEAL — soigne le joueur sans dépasser MaxHealth
+// ─────────────────────────────────────────────────────────────────────────────
+void AGuildMaster::Heal(float Amount)
+{
+    if (IsDead()) return;
+
+    CurrentHealth = FMath::Min(MaxHealth, CurrentHealth + Amount);
+
+    UE_LOG(LogTemp, Log, TEXT("[GuildMaster] Soin : +%.0f | Vie : %.0f/%.0f"),
+        Amount, CurrentHealth, MaxHealth);
+
+    // Notifie le HUD
+    OnHealthChanged.Broadcast(CurrentHealth, MaxHealth);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  DIE — appelé quand la vie tombe à 0
+// ─────────────────────────────────────────────────────────────────────────────
+void AGuildMaster::Die()
+{
+    UE_LOG(LogTemp, Warning, TEXT("[GuildMaster] Le joueur est mort !"));
+
+    // Notifie le Blueprint pour l'écran de mort
+    OnDeath();
+}
+
 void AGuildMaster::Move(const FInputActionValue& Value)
 {
-    // Value est un Vector2D — X = droite/gauche, Y = avant/arrière
     FVector2D MovementVector = Value.Get<FVector2D>();
-
     AddMovementInput(GetActorForwardVector(), MovementVector.Y);
     AddMovementInput(GetActorRightVector(), MovementVector.X);
 }
@@ -80,25 +146,17 @@ void AGuildMaster::Move(const FInputActionValue& Value)
 void AGuildMaster::Look(const FInputActionValue& Value)
 {
     FVector2D LookVector = Value.Get<FVector2D>();
-
     AddControllerYawInput(LookVector.X);
     AddControllerPitchInput(LookVector.Y);
-
-
 }
 
 void AGuildMaster::OpenRecruitment(const FInputActionValue& Value)
 {
-    // On laisse le Blueprint gérer l'affichage du panneau
-    // On utilise un BlueprintImplementableEvent pour ça
+    // Géré dans le Blueprint
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  FIND NEAREST SNAP POINT — VERSION 3
-//  Utilise le système de types compatibles pour trouver
-//  le meilleur point de snap entre le ghost et les pièces posées.
-//  Trouve le snap point du ghost le plus proche du snap point de la pièce
-//  pour que l'alignement soit correct.
 // ─────────────────────────────────────────────────────────────────────────────
 bool AGuildMaster::FindNearestSnapPoint(FVector CurrentLocation, FVector& OutSnapLocation, FRotator& OutSnapRotation)
 {
@@ -112,7 +170,6 @@ bool AGuildMaster::FindNearestSnapPoint(FVector CurrentLocation, FVector& OutSna
         GetWorld(), ABuildingPiece::StaticClass(), NearbyActors);
 
     float NearestDistance = DetectionRadius;
-
     bool bFoundSnap = false;
 
     for (AActor* Actor : NearbyActors)
@@ -148,8 +205,6 @@ bool AGuildMaster::FindNearestSnapPoint(FVector CurrentLocation, FVector& OutSna
 
             if (!CompatibleGhostSP) continue;
 
-            // Pour l'axe Z on applique l'offset du ghost
-// pour que son snap point s'aligne avec celui de la pièce
             FVector GhostSnapOffsetZ = FVector(0, 0, CompatibleGhostSP->LocalOffset.Z);
             FVector CandidateLocation = PieceSnapWorld - GhostSnapOffsetZ;
 
@@ -159,7 +214,6 @@ bool AGuildMaster::FindNearestSnapPoint(FVector CurrentLocation, FVector& OutSna
             {
                 NearestDistance = Distance;
                 OutSnapLocation = CandidateLocation;
-                // Rotation de la pièce + rotation du snap point
                 OutSnapRotation = Piece->GetActorRotation() + PieceSP.SnapRotation;
                 bFoundSnap = true;
             }
@@ -169,6 +223,9 @@ bool AGuildMaster::FindNearestSnapPoint(FVector CurrentLocation, FVector& OutSna
     return bFoundSnap;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  GET GROUND POSITION — line trace vers le sol
+// ─────────────────────────────────────────────────────────────────────────────
 FVector AGuildMaster::GetGroundPosition(FVector StartLocation, AActor* IgnoredActor)
 {
     FVector Start = StartLocation + FVector(0, 0, 1000.f);
